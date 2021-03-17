@@ -7,6 +7,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/lwch/token"
@@ -90,5 +91,7 @@ func (m *Mgr) Get(uid string, tk token.Token) error {
 	if err != nil {
 		return err
 	}
-	return tk.UnSerialize(data)
+	token := strings.TrimSuffix(filepath.Base(files[0]), ".token")
+	token = strings.TrimPrefix(token, uid+"_")
+	return tk.UnSerialize(token, data)
 }

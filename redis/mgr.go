@@ -88,5 +88,5 @@ func (m *Mgr) Get(uid string, tk token.Token) error {
 	if err != nil {
 		return err
 	}
-	return tk.UnSerialize([]byte(data))
+	return tk.UnSerialize(token, []byte(data))
 }

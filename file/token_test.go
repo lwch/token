@@ -45,7 +45,7 @@ func (tk *tk) Serialize() ([]byte, error) {
 	return json.Marshal(tk)
 }
 
-func (tk *tk) UnSerialize(data []byte) error {
+func (tk *tk) UnSerialize(token string, data []byte) error {
 	return json.Unmarshal(data, tk)
 }
 

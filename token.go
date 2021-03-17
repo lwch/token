@@ -7,6 +7,6 @@ type Token interface {
 	GetName() string
 
 	Serialize() ([]byte, error)
-	UnSerialize([]byte) error
+	UnSerialize(string, []byte) error
 	Verify([]byte) (bool, error)
 }

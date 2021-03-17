@@ -2,6 +2,7 @@ package file
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -49,8 +50,12 @@ func (m *Mgr) clear() {
 
 // Save save token
 func (m *Mgr) Save(tk token.Token) error {
+	data, err := tk.Serialize()
+	if err != nil {
+		return err
+	}
 	dir := path.Join(m.cacheDir, fmt.Sprintf("%s_%s.token", tk.GetUID(), tk.GetTK()))
-	return tk.Save(dir)
+	return ioutil.WriteFile(dir, []byte(data), 0644)
 }
 
 // Verify verify token
@@ -59,12 +64,16 @@ func (m *Mgr) Verify(tk token.Token) (bool, error) {
 	if len(files) == 0 {
 		return false, nil
 	}
-	return true, tk.Load(files[0])
+	data, err := ioutil.ReadFile(files[0])
+	if err != nil {
+		return false, err
+	}
+	return tk.Verify(data)
 }
 
 // Revoke revoke token
-func (m *Mgr) Revoke(uid string) {
-	files, _ := filepath.Glob(path.Join(m.cacheDir, fmt.Sprintf("%s_*.token", uid)))
+func (m *Mgr) Revoke(tk string) {
+	files, _ := filepath.Glob(path.Join(m.cacheDir, fmt.Sprintf("*_%s.token", tk)))
 	for _, file := range files {
 		os.Remove(file)
 	}

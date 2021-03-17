@@ -6,6 +6,6 @@ type Token interface {
 	GetUID() string
 	GetName() string
 
-	Load(from interface{}) error
-	Save(to interface{}) error
+	Serialize() ([]byte, error)
+	Verify([]byte) (bool, error)
 }

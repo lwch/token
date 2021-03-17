@@ -2,6 +2,7 @@ package redis
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -44,11 +45,14 @@ func (m *Mgr) Save(tk token.Token) error {
 	if err != nil {
 		return err
 	}
-	_, err = m.cli.SetEX(context.Background(), tk.GetTK(), string(data), m.ttl).Result()
-	if err != nil {
-		return err
-	}
-	return nil
+	_, err = m.cli.TxPipelined(context.Background(), func(pipe redis.Pipeliner) error {
+		err = pipe.SetNX(context.Background(), tk.GetTK(), string(data), m.ttl).Err()
+		if err != nil {
+			return err
+		}
+		return pipe.SetNX(context.Background(), tk.GetUID(), tk.GetTK(), m.ttl).Err()
+	})
+	return err
 }
 
 // Verify verify token
@@ -66,4 +70,23 @@ func (m *Mgr) Verify(tk token.Token) (bool, error) {
 // Revoke revoke token
 func (m *Mgr) Revoke(tk string) {
 	m.cli.Del(context.Background(), tk)
+}
+
+// Get get token by uid
+func (m *Mgr) Get(uid string, tk token.Token) error {
+	token, err := m.cli.Get(context.Background(), uid).Result()
+	if err == redis.Nil {
+		return errors.New("not found")
+	}
+	if err != nil {
+		return err
+	}
+	data, err := m.cli.Get(context.Background(), token).Result()
+	if err == redis.Nil {
+		return errors.New("not found")
+	}
+	if err != nil {
+		return err
+	}
+	return tk.UnSerialize([]byte(data))
 }

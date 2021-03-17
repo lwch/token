@@ -44,6 +44,10 @@ func (tk *tk) Serialize() ([]byte, error) {
 	return json.Marshal(tk)
 }
 
+func (tk *tk) UnSerialize(data []byte) error {
+	return json.Unmarshal(data, tk)
+}
+
 func (token *tk) Verify(data []byte) (bool, error) {
 	var dst tk
 	err := json.Unmarshal([]byte(data), &dst)
@@ -64,6 +68,7 @@ func TestFileToken(t *testing.T) {
 	}, time.Minute)
 	tk1 := newToken("1", "hello")
 	tk2 := newToken("2", "world")
+	var tk3 tk
 
 	err := mgr.Save(tk1)
 	if err != nil {
@@ -75,6 +80,16 @@ func TestFileToken(t *testing.T) {
 	}
 	if !ok {
 		t.Fatal("verify token failed: tk1")
+	}
+	err = mgr.Get(tk1.Uid, &tk3)
+	if err != nil {
+		t.Fatalf("get token by tk1.Uid failed: %v", err)
+	}
+	if tk1.Uid != tk3.Uid {
+		t.Fatalf("unexpected uid between tk1 and tk3")
+	}
+	if tk1.Name != tk3.Name {
+		t.Fatalf("unexpected name between tk1 and tk3")
 	}
 	mgr.Revoke(tk1.Token)
 	ok, err = mgr.Verify(&tk{Token: tk1.Token})

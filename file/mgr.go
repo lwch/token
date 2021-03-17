@@ -1,6 +1,7 @@
 package file
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -77,4 +78,17 @@ func (m *Mgr) Revoke(tk string) {
 	for _, file := range files {
 		os.Remove(file)
 	}
+}
+
+// Get get token by uid
+func (m *Mgr) Get(uid string, tk token.Token) error {
+	files, _ := filepath.Glob(path.Join(m.cacheDir, fmt.Sprintf("%s_*.token", uid)))
+	if len(files) == 0 {
+		return errors.New("not found")
+	}
+	data, err := ioutil.ReadFile(files[0])
+	if err != nil {
+		return err
+	}
+	return tk.UnSerialize(data)
 }

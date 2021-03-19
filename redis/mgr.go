@@ -64,7 +64,18 @@ func (m *Mgr) Verify(tk token.Token) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	return tk.Verify([]byte(data))
+	ok, err := tk.Verify([]byte(data))
+	if err != nil {
+		return ok, err
+	}
+	if ok {
+		m.cli.Pipelined(context.Background(), func(pipe redis.Pipeliner) error {
+			pipe.Expire(context.Background(), tk.GetTK(), m.ttl)
+			pipe.Expire(context.Background(), tk.GetUID(), m.ttl)
+			return nil
+		})
+	}
+	return ok, err
 }
 
 // Revoke revoke token

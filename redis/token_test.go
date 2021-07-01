@@ -90,7 +90,7 @@ func TestFileToken(t *testing.T) {
 	if tk1.Name != tk3.Name {
 		t.Fatalf("unexpected name between tk1 and tk3")
 	}
-	mgr.Revoke(tk1.Token)
+	mgr.Revoke(tk1.Uid, tk1.Token)
 	ok, err = mgr.Verify(&tk{Token: tk1.Token})
 	if err != nil {
 		t.Fatalf("unexpected verify token: %v", err)

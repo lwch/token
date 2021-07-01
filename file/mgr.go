@@ -74,7 +74,7 @@ func (m *Mgr) Verify(tk token.Token) (bool, error) {
 }
 
 // Revoke revoke token
-func (m *Mgr) Revoke(tk string) {
+func (m *Mgr) Revoke(uid, tk string) {
 	files, _ := filepath.Glob(path.Join(m.cacheDir, fmt.Sprintf("*_%s.token", tk)))
 	for _, file := range files {
 		os.Remove(file)

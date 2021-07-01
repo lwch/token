@@ -108,8 +108,12 @@ func (m *Mgr) Verify(tk token.Token) (bool, error) {
 }
 
 // Revoke revoke token
-func (m *Mgr) Revoke(tk string) {
-	m.cli.Del(context.Background(), tk)
+func (m *Mgr) Revoke(uid, tk string) {
+	if m.cli != nil {
+		m.cli.Del(context.Background(), tk, uid)
+	} else {
+		m.clusterCli.Del(context.Background(), tk, uid)
+	}
 }
 
 // Get get token by uid

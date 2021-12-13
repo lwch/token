@@ -9,12 +9,16 @@ import (
 	"github.com/lwch/token"
 )
 
+// ErrNotfound not found error
+var ErrNotfound = errors.New("not found")
+
 // RedisConf redis config
 type RedisConf struct {
 	Addrs    []string
 	User     string
 	Password string
 	DB       int
+	Prefix   string
 }
 
 // Mgr token manager
@@ -22,6 +26,7 @@ type Mgr struct {
 	cli        *redis.Client
 	clusterCli *redis.ClusterClient
 	ttl        time.Duration
+	prefix     string
 }
 
 // DefaultTTL default ttl
@@ -49,6 +54,7 @@ func NewManager(cfg RedisConf, ttl time.Duration) *Mgr {
 		})
 	}
 	ret.ttl = ttl
+	ret.prefix = cfg.Prefix
 	return ret
 }
 
@@ -59,11 +65,19 @@ func (m *Mgr) Save(tk token.Token) error {
 		return err
 	}
 	pipe := func(pipe redis.Pipeliner) error {
-		err = pipe.SetNX(context.Background(), tk.GetTK(), string(data), m.ttl).Err()
+		key := tk.GetTK()
+		if len(m.prefix) > 0 {
+			key = m.prefix + ":" + key
+		}
+		err = pipe.SetNX(context.Background(), key, string(data), m.ttl).Err()
 		if err != nil {
 			return err
 		}
-		return pipe.SetNX(context.Background(), tk.GetUID(), tk.GetTK(), m.ttl).Err()
+		key = tk.GetUID()
+		if len(m.prefix) > 0 {
+			key = m.prefix + ":" + key
+		}
+		return pipe.SetNX(context.Background(), key, tk.GetTK(), m.ttl).Err()
 	}
 	if m.cli != nil {
 		_, err = m.cli.TxPipelined(context.Background(), pipe)
@@ -77,10 +91,14 @@ func (m *Mgr) Save(tk token.Token) error {
 func (m *Mgr) Verify(tk token.Token) (bool, error) {
 	var data string
 	var err error
+	key := tk.GetTK()
+	if len(m.prefix) > 0 {
+		key = m.prefix + ":" + key
+	}
 	if m.cli != nil {
-		data, err = m.cli.Get(context.Background(), tk.GetTK()).Result()
+		data, err = m.cli.Get(context.Background(), key).Result()
 	} else {
-		data, err = m.clusterCli.Get(context.Background(), tk.GetTK()).Result()
+		data, err = m.clusterCli.Get(context.Background(), key).Result()
 	}
 	if err == redis.Nil {
 		return false, nil
@@ -94,8 +112,16 @@ func (m *Mgr) Verify(tk token.Token) (bool, error) {
 	}
 	if ok {
 		pipe := func(pipe redis.Pipeliner) error {
-			pipe.Expire(context.Background(), tk.GetTK(), m.ttl)
-			pipe.Expire(context.Background(), tk.GetUID(), m.ttl)
+			key := tk.GetTK()
+			if len(m.prefix) > 0 {
+				key = m.prefix + ":" + key
+			}
+			pipe.Expire(context.Background(), key, m.ttl)
+			key = tk.GetUID()
+			if len(m.prefix) > 0 {
+				key = m.prefix + ":" + key
+			}
+			pipe.Expire(context.Background(), key, m.ttl)
 			return nil
 		}
 		if m.cli != nil {
@@ -109,10 +135,23 @@ func (m *Mgr) Verify(tk token.Token) (bool, error) {
 
 // Revoke revoke token
 func (m *Mgr) Revoke(uid, tk string) {
+	pipe := func(pipe redis.Pipeliner) error {
+		key := uid
+		if len(m.prefix) > 0 {
+			key = m.prefix + ":" + key
+		}
+		pipe.Del(context.Background(), key)
+		key = tk
+		if len(m.prefix) > 0 {
+			key = m.prefix + ":" + key
+		}
+		pipe.Del(context.Background(), key)
+		return nil
+	}
 	if m.cli != nil {
-		m.cli.Del(context.Background(), tk, uid)
+		m.cli.Pipelined(context.Background(), pipe)
 	} else {
-		m.clusterCli.Del(context.Background(), tk, uid)
+		m.clusterCli.Pipelined(context.Background(), pipe)
 	}
 }
 
@@ -120,25 +159,33 @@ func (m *Mgr) Revoke(uid, tk string) {
 func (m *Mgr) Get(uid string, tk token.Token) error {
 	var token string
 	var err error
+	key := uid
+	if len(m.prefix) > 0 {
+		key = m.prefix + ":" + key
+	}
 	if m.cli != nil {
-		token, err = m.cli.Get(context.Background(), uid).Result()
+		token, err = m.cli.Get(context.Background(), key).Result()
 	} else {
-		token, err = m.clusterCli.Get(context.Background(), uid).Result()
+		token, err = m.clusterCli.Get(context.Background(), key).Result()
 	}
 	if err == redis.Nil {
-		return errors.New("not found")
+		return ErrNotfound
 	}
 	if err != nil {
 		return err
 	}
 	var data string
+	key = token
+	if len(m.prefix) > 0 {
+		key = m.prefix + ":" + key
+	}
 	if m.cli != nil {
-		data, err = m.cli.Get(context.Background(), token).Result()
+		data, err = m.cli.Get(context.Background(), key).Result()
 	} else {
-		data, err = m.clusterCli.Get(context.Background(), token).Result()
+		data, err = m.clusterCli.Get(context.Background(), key).Result()
 	}
 	if err == redis.Nil {
-		return errors.New("not found")
+		return ErrNotfound
 	}
 	if err != nil {
 		return err

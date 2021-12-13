@@ -61,7 +61,7 @@ func (token *tk) Verify(data []byte) (bool, error) {
 	return false, nil
 }
 
-func TestFileToken(t *testing.T) {
+func TestRedisToken(t *testing.T) {
 	mgr := NewManager(RedisConf{
 		Addrs: []string{"127.0.0.1:6379"},
 	}, time.Minute)
